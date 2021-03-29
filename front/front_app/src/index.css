@@ -1,0 +1,16 @@
+.loginBlock{
+    margin: auto;
+    border: 1px solid;
+    text-align: center;
+    color: blue;
+}
+
+.loginBlock input{
+    display: block;
+    margin: auto;
+    margin-top: 12px;
+}
+
+.loginBlock [type="submit"]{
+    margin-bottom: 15px;
+}
