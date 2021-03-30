@@ -1,8 +1,10 @@
 .loginBlock{
     margin: auto;
+    display: block;
     border: 1px solid;
     text-align: center;
     color: blue;
+    max-width: 450px;
 }
 
 .loginBlock input{
@@ -13,4 +15,8 @@
 
 .loginBlock [type="submit"]{
     margin-bottom: 15px;
+}
+
+.loginBlock div{
+    margin-bottom: 10px;
 }
