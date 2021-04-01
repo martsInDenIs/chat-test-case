@@ -35,7 +35,7 @@ class LoginForm extends React.Component{
         myRequest.open("POST",'http://localhost:8080',true);
         myRequest.setRequestHeader("Content-Type","application/json; charset=utf-8");
         
-        myRequest.send(JSON.stringify({target: "login", login:this.state.name_field, password: this.state.password_field}));
+        myRequest.send(JSON.stringify({status_code: "login", login:this.state.name_field, password: this.state.password_field}));
         myRequest.onload = ()=>{
             let answer_obj = JSON.parse(myRequest.response);
             switch(answer_obj.status_code){
@@ -78,25 +78,22 @@ class ChatForm extends React.Component{
     constructor(props){
         super(props);
         this.state = {
-            message: '',
-            user_id: props.user_id,
-            name: props.name,
-            text_color: props.text_color,
-            login_color: props.login_color,
+            send_message: [],
+            user_id: props.user_info.user_id,
+            name: props.user_info.name,
+            text_color: props.user_info.text_color,
+            login_color: props.user_info.login_color,
 
         }
-        this.handleChange = this.handleChange.bind(this);
         this.handleSubmit = this.handleSubmit.bind(this);
-    }
-
-    handleChange(event){
-        this.setState({message: event.target.value});
     }
 
 
     handleSubmit(event){
-        this.setState({message: ''});
+        socket.send(JSON.stringify({status_code: "send_message", name: this.state.name, user_id: this.state.user_id, message: event.target[0].value, text_color: this.state.text_color, login_color: this.state.login_color}));
+        this.setState({message_input: ''});
     }
+
     componentDidMount(){
         socket =  new WebSocket("ws://localhost:8080");
         socket.onmessage = (event) =>{
@@ -104,16 +101,25 @@ class ChatForm extends React.Component{
             console.log(answer_obj);
             
             switch(answer_obj.status_code){
-                case "login_error":
-                    this.setState({isLogFail: true});
+                case "send_message":
+                    this.setState({send_message: [answer_obj]})
+                    break;
+                case "show_all_messages":
+                    this.setState({send_message: answer_obj.messages});
                     break;
                 default:
                     break;    
             }
         }
-        socket.onopen = function(event){
+
+
+        socket.onopen = (event)=>{
             console.log("Connection is successful");
+            socket.send(JSON.stringify({user_id: this.state.user_id, status_code: "socket_id"}));
+            socket.send(JSON.stringify({status_code: "show_all_messages"}));        
         }
+
+
         socket.onerror = function(error){
             console.log(error);
         }
@@ -127,20 +133,44 @@ class ChatForm extends React.Component{
         console.log(this.props.user_info);
         return (<div>
             <div>
-                <MessageWindow />
+                <ul>
+                    <MessageWindow message_list = {[...this.state.send_message]}/>
+                </ul>
                 <SideUsersBlock />
             </div>
-            <UserInputForm onHandleSubmit = {this.handleSubmit} onHandleChange = {this.handleChange}/>
+            <UserInputForm onHandleSubmit = {this.handleSubmit}/>
         </div>);
     }
 }
 
+
+
+
+
 class MessageWindow extends React.Component{
+    constructor(props){
+        super(props);
+        this.state = {
+            messages: props.message_list,
+        }
+    }
+
+    shouldComponentUpdate(nextProps){
+        console.log("should update");
+        return this.state.messages = [...nextProps.message_list];
+    }
+
     render(){
 
-        return <div></div>;
+        return  (<div>{this.state.messages.map((user,index)=><div key={index} className = 'messageBlock'>
+                    <p style = {{color: user.text_color}} className = "nameClass">{user.name}</p>
+                    <p style = {{color: user.text_color}} className = 'textClass'>{user.text}</p>
+                </div>)}</div>);
     }
 }
+
+
+
 
 class UserInputForm extends React.Component{
     constructor(props){
@@ -149,12 +179,14 @@ class UserInputForm extends React.Component{
         this.handleSubmit = this.handleSubmit.bind(this);
         this.state = {
             disabled: false,
+            message_input: '',
         }
     }
 
 
-    handleChange(e){
-        this.props.onHandleChange(e);
+    handleChange(event){
+        // this.props.onHandleChange(event);
+        this.setState({message_input: event.target.value});
     }
 
 
@@ -172,7 +204,7 @@ class UserInputForm extends React.Component{
 
     render(){
         return (<form onSubmit = {this.handleSubmit}>
-            <input type = 'text' maxLength = {200} value = {this.props.message} onChange = {this.handleChange} placeholder = "Input your message..." />
+            <input type = 'text' maxLength = {200} onChange = {this.handleChange} placeholder = "Input your message..." />
             <input type = 'submit' value = "Send message" disabled = {this.state.disabled}/>
         </form>);
     }
