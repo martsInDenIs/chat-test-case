@@ -7,7 +7,7 @@ module.exports.showAllMessages = async function(ws){
     let [share_result] = await conn.query("SELECT users.name as name, messages.text as text, users.text_color as text_color, users.login_color as login_color FROM messages INNER JOIN users ON messages.user_id = users.user_id");
     console.log("SHARE RESULT: " + share_result);
     conn.end();
-    ws.emit("show_all_messages", share_result);
+    ws.send(JSON.stringify({statusCode: "show_all_messages",messages: share_result}));
 }
 
 
@@ -33,7 +33,7 @@ async function deleteLastMessage(){
 }
 
 
-module.exports.sendMessage = async function(obj,wss){
+module.exports.sendMessage = async function(message,user,wss){
     connection = await mysql.createConnection({host:'localhost',database:"web_socket_chat", user:"root", password: 'root'});
     let message_count = showAmountOfMessages();
     if(message_count >= 2){
@@ -42,13 +42,20 @@ module.exports.sendMessage = async function(obj,wss){
     }
 
     try{
-        await connection.query("INSERT INTO messages(user_id, text, date) VALUES(?,?,?)",[obj.user_id, obj.message, new Date()]);
-        wss.clients.forEach((ws)=>{
-            ws.send(JSON.stringify(obj));
-        });
+        await connection.query("INSERT INTO messages(user_id, text, date) VALUES(?,?,?)",[user.user_id, message, new Date()]);
+        // console.log(wss.clients);
     }catch(err){
         console.error(`Err: ${err}`);
     }
+
+    wss.clients.forEach((client)=>{
+        client.send(JSON.stringify({statusCode: "send_message", message: {
+            text: message,
+            name: user.name,
+            textColor: user.text_color,
+            loginColor: user.login_color,
+        }}));
+    });
 
     connection.end();
 }

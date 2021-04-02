@@ -1,44 +1,50 @@
 const mysql = require('mysql2/promise');
 let connection = null;
 
-async function adminId(){
-    let [share_result] = await connection.query("SELECT user_id FROM admin WHERE id = 1");
-    return share_result.length == 1 ? share_result[0].user_id : -1; 
-}
-
 
 async function findUserInDB(obj){
-    let [share_result] = await connection.query("SELECT user_id, name FROM users WHERE name = ? AND password = ?;",[obj.login, obj.password]);
-    return share_result;
+    let [shareResult] = await connection.query("SELECT user_id, name, password, text_color, login_color, mute, ban, isAdmin FROM users WHERE name = ? AND password = ?;",[obj.login, obj.password]);
+    return shareResult;
 }
 
 async function createUser(obj, res){
-    let [user_count] = await connection.query(`SELECT COUNT(user_id) as amount FROM users WHERE user_id LIKE '${obj.login[0].toUpperCase()}%' ;`);
+    let [userCount] = await connection.query(`SELECT COUNT(user_id) as amount FROM users WHERE user_id LIKE '${obj.login[0].toUpperCase()}%' ;`);
     try{
-        let user_id = obj.login[0].toUpperCase() + (+user_count[0].amount + 1);
-        await connection.query("INSERT INTO users VALUES(?,?,?,?,?);",[user_id, obj.login, obj.password, obj.text_color, obj.login_color]); 
+        let userId = obj.login[0].toUpperCase() + (+userCount[0].amount + 1);
+        await connection.query("INSERT INTO users VALUES(?,?,?,?,?,?,?,?);",[userId, obj.login, obj.password, obj.textColor, obj.loginColor, false, false, obj.createAdmin]); 
         console.log(`New user has created`);
-        if(obj.createAdmin == true) await connection.query("INSERT INTO admin VALUES(?,?)",[1,user_id]); 
-        res.emit('login_ok',{user_id: user_id, name: obj.login, text_color: obj.text_color, login_color: obj.login_color});
+        res.emit('login_ok',{isAdmin: obj.createAdmin, userId: userId, name: obj.login});
     }catch(err){
+        console.log(err);
         res.emit('login_error');
     }
 }
 
 module.exports.checkUser = async function(obj, res){
     connection = await mysql.createConnection({host:'localhost',user:"root",database:"web_socket_chat",password: "root"});
-    let admin_id = await adminId();
+    let users = await connection.query("SELECT COUNT (*) FROM users");
+    let isAdmin = null
+    
+    if(users.length == 0) isAdmin = true;  // возвращает user_id, name
+        else isAdmin = false;
+    
     let user = await findUserInDB({login: obj.login, password: obj.password});
-
     if(user.length <= 0) {
-        let choise = null;
-        if(admin_id == -1) choise = true;  // возвращает user_id, name
-        else choise = false;
-        
-        await createUser({createAdmin: choise, login: obj.login, password: obj.password, text_color: "#000", login_color: "#000"}, res);
+        console.log("tut");
+        await createUser({createAdmin: isAdmin, login: obj.login, password: obj.password, textColor: "#000", loginColor: "#000", mute: obj.mute, ban: obj.ban}, res);
     }
-    else if(user.length == 1) return res.emit('login_ok',({user_id: user[0].user_id, name: user[0].name}));
+    else if(user.length == 1) return res.emit('login_ok',({isAdmin: isAdmin, userId: user[0].user_id, name: user[0].name}));
     else console.error('Can`t be more than 1 user with this name and password...'); 
 
     connection.end();
+}
+
+
+module.exports.getUser = async function(userId){
+    connection = await mysql.createConnection({host:'localhost',user:"root",database:"web_socket_chat",password: "root"});
+
+    let [share_result] = await connection.query("SELECT * FROM users WHERE user_id = ?",[userId]);
+    console.log(share_result[0]);
+    connection.end();
+    return (share_result[0]);
 }
