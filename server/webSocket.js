@@ -6,7 +6,9 @@ const WebSocket = require('ws');
 const cors = require('cors');
 const jsonParser = express.json();
 const jwt = require('jsonwebtoken');
-const secretKey = require('./config');
+const secret = require('./config');
+const usersController = require('./controller/users_controller');
+const textController = require('./controller/text_validate_controller'); 
 
 const app = express();
 const server = http.createServer(app);
@@ -14,97 +16,118 @@ const server = http.createServer(app);
 
 const wss = new WebSocket.Server({server});
 
-// делать update при установке mute and ban
 const clients = new Map();
 
 app.use(cors());
 
 wss.on("connection",async (ws,req)=>{
-    // check token, check ban status, check user exists
-    
     const token = req.url.split('token=')[1];// get token from query
-    console.log(token);
 
     if (!token) {
-        ws.close(1013);
+       return ws.close(1013);
     }
     let payload = null;  
 
     try {
-         payload = jwt.verify(token,secretKey.getSecretKey()); // decode token
+         payload = jwt.verify(token,secret.secretKey); // decode token
     }catch(e){
-        ws.close(1013);
-        return;
+        return ws.close(1013);
     }
 
-    // console.log(payload);
     const user =  await loginController.getUser(payload.userId); 
-    console.log(user);
+    
     if (!user || user.ban){
-        ws.close(1013);
-    }else{
-        await clients.set(user.user_id, {user, ws});
+       return ws.close(1013);
     }
+
+    await clients.set(user.id, {user, ws});
 
     console.log(clients);
-    
 
     ws.on('close',(reason)=>{
-        clients.delete(user.user_id);
+        clients.delete(user.id);
+        wss.clients.forEach((ws)=>ws.send(JSON.stringify({statusCode: "find_new_users"})));
     });
 
     ws.on("message",(message) =>{
-        let obj = JSON.parse(message);
-        console.log(obj.statusCode);
-        switch(obj.statusCode){     
+        let objectInfo = JSON.parse(message);
+        switch(objectInfo.statusCode){     
             case "send_message":
-                console.log(clients.get(user.user_id).user);
-                messageController.sendMessage(obj.message,clients.get(user.user_id).user,wss);
+                // const validMessage = textController.textControll(objectInfo.message,1,200,false);
+                // if(!validMessage) return false;
+                console.log(objectInfo.message);
+                const userInfo = clients.get(user.id).user;
+                messageController.sendMessage(objectInfo.message,user,wss);
                 break;
-            case "show_all_messages":
-                messageController.showAllMessages(ws);
+            case "get_all_messages":
+                messageController.getAllMessages(ws);
                 break;
-            case 'ban':
-                if (!user.isAdmin){
-                    return;
+            case 'ban': 
+                if (!user.isAdmin) return ws.close(1013);
+                usersController.banUser(objectInfo.banUserId,clients);
+                break;
+            case 'mute':
+                if(!user.isAdmin) return ws.close(1013);
+                usersController.muteUser(objectInfo.muteUserId,clients);
+                break;
+            case "get_all_users":
+                const usersOnLine = [];
+                for(let client of clients.values()){
+                    usersOnLine.push({name: client.user.name, userId: client.user.id})
+                }
+                // clients.forEach(((user, usersOnLine) => ({ //нет метода map
+                //     name: user.user.name, userId: user.user.user_id,
+                // })));
+           
+                console.log(user.isAdmin);
+                if(user.isAdmin) usersController.getAllUsers(user, ws, usersOnLine);
+                else {
+                    ws.send(JSON.stringify({statusCode: "get_all_users", usersOnLine: usersOnLine}));
                 }
                 break;
             default:
-
                 break;
         }
 
     });
 
-    ws.on('show_all_messages',(messageArr)=>{
+    ws.on('get_all_messages',(messageArr)=>{
         console.log('tuta');
-        ws.send(JSON.stringify({statusCode: "show_all_messages", messages: messageArr}));
+        ws.send(JSON.stringify({statusCode: "get_all_messages", messages: messageArr}));
     });
 
     ws.send(JSON.stringify({statusCode: "find_messages"}));
+    wss.clients.forEach((ws)=>ws.send(JSON.stringify({statusCode: "find_new_users"})));
 });
 
+// TODO message limiter on the server
 
 
 app.post('/',jsonParser,function(req,res){
-    switch(req.body.statusCode){
-        case "login":
-            loginController.checkUser(req.body, res);
-            break;           
-        default:
-            console.error("Something go wrong!");
-    }
     res.on("login_error",()=>{
         res.json({statusCode:"login_error"});
     });
 
     res.on("login_ok",(obj)=>{
-        const token = jwt.sign(obj,secretKey.getSecretKey(),{expiresIn: 60*60});
+        const token = jwt.sign(obj,secret.secretKey,{expiresIn: 60*60});
         res.json({
             statusCode: "login_ok",
-            token: token,
+            token,
         }); 
     });
+   
+    switch(req.body.statusCode){
+        case "login":
+            let validLogin = textController.textControll(req.body.login,3,20,true);
+            let validPassword = textController.textControll(req.body.password,3,20,true);
+            if(!validLogin || !validPassword) return  res.emit('login_error');
+            console.log("BY");
+
+            loginController.checkUser(req.body, res);
+            break;           
+        default:
+            console.error("Something go wrong!");
+    }
     
 });
 

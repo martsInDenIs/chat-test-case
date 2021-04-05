@@ -42,3 +42,13 @@
     font-size: 20px;
     font-weight: bold;    
 }
+
+.messageWindow{
+    max-width: 75%;
+    border: 1px solid;
+}
+
+.sideUsersBlock{
+    max-width: 30%;
+    border: 1px solid;
+}

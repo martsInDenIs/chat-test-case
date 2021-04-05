@@ -1,9 +1,10 @@
 import React from "react";
 import ReactDOM from "react-dom";
-import "./index.css";
+import "./index.css"
+import jwtDecode from 'jwt-decode';
 
 let socket = null;
-let myRequest = new XMLHttpRequest();
+const myRequest = new XMLHttpRequest();
 
 class LoginForm extends React.Component{
     constructor(props){
@@ -12,15 +13,17 @@ class LoginForm extends React.Component{
             nameField: "",
             passwordField: "",
             isLogFail: false,
+            chatRender: false,
         }
         this.handleChange = this.handleChange.bind(this);
         this.handleSubmit = this.handleSubmit.bind(this);
+        this.loginRender = this.loginRender.bind(this);
     }
 
     componentDidMount() { 
         let token = localStorage.getItem('web_token');
         if(token){
-            ReactDOM.render(<ChatForm />,document.getElementById("root"));
+            this.setState({chatRender: true});
         }
     }
 
@@ -37,6 +40,10 @@ class LoginForm extends React.Component{
         }
     }
 
+    loginRender(){
+        this.setState({chatRender: false});
+    }
+
     handleSubmit(event){
         myRequest.open("POST",'http://localhost:8080',true);
         myRequest.setRequestHeader("Content-Type","application/json; charset=utf-8");
@@ -51,7 +58,7 @@ class LoginForm extends React.Component{
                 case "login_ok":
                     console.log(answerObj);
                     localStorage.setItem('web_token',answerObj.token);
-                    ReactDOM.render(<ChatForm />,document.getElementById("root"));
+                    this.setState({chatRender: true});
                     break;
                 default:
                     console.log('it`s not possible');
@@ -64,14 +71,14 @@ class LoginForm extends React.Component{
     }
 
     render(){
-        return (<div className = "loginBlock">
+        return (this.state.chatRender ? <ChatForm onLoginRender = {this.loginRender} /> : <div className = "loginBlock">
             <h3>Log in</h3>
             <form onSubmit = {this.handleSubmit} id = 'login_f'>
-                <label><input type = 'text' id = 'login' placeholder = "Input login..." onChange = {this.handleChange}/></label>
-                <label><input type = 'password' id = 'password' placeholder = "Input password..." onChange = {this.handleChange}/></label>
+                <label><input type = 'text' id = 'login' placeholder = "Input login..." maxLength = '20' onChange = {this.handleChange}/></label>
+                <label><input type = 'password' id = 'password'  maxLength = '10' placeholder = "Input password..." onChange = {this.handleChange}/></label>
                 <input type = 'submit' />
             </form>
-            {!this.state.isLogFail ? null : <div>Invalid password</div>}
+            {!this.state.isLogFail ? null : <div>Invalid name or password</div>}
         </div>);
     }
 
@@ -101,10 +108,16 @@ class LoginForm extends React.Component{
 class ChatForm extends React.Component{
     constructor(props){
         super(props);
+        let objInformation = jwtDecode(localStorage.getItem('web_token'));
         this.state = {
             messages: [],
+            isAdmin: objInformation.isAdmin,
+            isMute: objInformation.mute,
+            usersOnLine: [],
+            allUsers:[],
         }
         this.handleSubmit = this.handleSubmit.bind(this);
+        this.handleClick = this.handleClick.bind(this);
 
         socket =  new WebSocket(`ws://localhost:8080/?token=${localStorage.getItem('web_token')}`);
 
@@ -116,11 +129,26 @@ class ChatForm extends React.Component{
                     console.log('ogogoog');
                     this.setState({messages: this.state.messages.concat(answerObj.message)});
                     break;
-                case "show_all_messages":
+                case "get_all_messages":
                     this.setState({messages: answerObj.messages});
                     break;
+                case "get_all_users":
+                    console.log("ABA");
+                    if(answerObj.allUsers){
+                        this.setState({allUsers: answerObj.allUsers, usersOnLine: answerObj.usersOnLine});
+                    }else{
+                        console.log("HERE");
+                        this.setState({usersOnLine: answerObj.usersOnLine});
+                    }
+                    break;
                 case "find_messages":
-                    socket.send(JSON.stringify({statusCode: "show_all_messages"}));       
+                    socket.send(JSON.stringify({statusCode: "get_all_messages"}));       
+                    break;
+                case "find_new_users":
+                    socket.send(JSON.stringify({statusCode: "get_all_users"}));
+                    break;
+                case "mute":
+                    this.setState({isMute: !this.state.isMute});
                     break;
                 default:
                     break;    
@@ -133,15 +161,15 @@ class ChatForm extends React.Component{
         }
 
 
-        socket.onerror = function(error){
+        socket.onerror = (error) => {
             console.log(error);
+            this.props.onLoginRender();
         }
 
         socket.onclose = (event)=>{
-            // alert(event.code);
             if(event.code === 1013){
                 localStorage.removeItem('web_token');
-                ReactDOM.render(<LoginForm />,document.getElementById('root'));
+                this.props.onLoginRender();
             }
         }
     }
@@ -159,16 +187,21 @@ class ChatForm extends React.Component{
         socket.close();
     }
 
+    handleClick(){
+        localStorage.removeItem('web_token');
+        socket.close();
+    }
+
     render(){
-        console.log(this.props.user_info);
         return (<div>
             <div>
                 <ul>
-                    <MessageWindow messages = {this.state.messages}/>
+                    <MessageWindow  messages = {this.state.messages}/>
                 </ul>
-                <SideUsersBlock />
+                <SideUsersBlock usersOnLine = {this.state.usersOnLine} allUsers = {this.state.allUsers}/>
             </div>
-            <UserInputForm onHandleSubmit = {this.handleSubmit}/>
+            <UserInputForm onHandleSubmit = {this.handleSubmit} isMute = {this.state.isMute}/>
+            <button onClick = {this.handleClick}>Exit</button>
         </div>);
     }
 }
@@ -183,8 +216,7 @@ class MessageWindow extends React.Component{
     }
 
     render(){
-
-        return  (<div>{this.props.messages.map((user,index)=><div key={index} className = 'messageBlock'>
+        return  (<div className = "messageWindow">{this.props.messages.map((user,index)=><div key={index} className = 'messageBlock'>
                     <p style = {{color: user.loginColor}} className = "nameClass">{user.name}</p>
                     <p style = {{color: user.textColor}} className = 'textClass'>{user.text}</p>
                 </div>)}</div>);
@@ -200,6 +232,7 @@ class UserInputForm extends React.Component{
         this.handleChange = this.handleChange.bind(this);
         this.handleSubmit = this.handleSubmit.bind(this);
         this.state = {
+            isMute: this.props.isMute,
             disabled: false,
             messageInput: '',
         }
@@ -214,9 +247,6 @@ class UserInputForm extends React.Component{
 
     handleSubmit(e){
         e.preventDefault();
-
-        console.log(e.target);
-
         this.setState({disabled: true, messageInput: ""});
         setTimeout(()=>{
             this.setState({disabled: !this.state.disabled})
@@ -226,20 +256,41 @@ class UserInputForm extends React.Component{
 
     render(){
         return (<form onSubmit = {this.handleSubmit}>
-            <input type = 'text' maxLength = {200} value = {this.state.messageInput} onChange = {this.handleChange} placeholder = "Input your message..." />
-            <input type = 'submit' value = "Send message" disabled = {this.state.disabled}/>
+            <textarea maxLength = '200' value = {this.state.messageInput} disabled = {this.state.isMute} onChange = {this.handleChange} required = {true} placeholder = "Input your message..." ></textarea>
+            <input type = 'submit' value = "Send message" disabled = {this.state.disabled || this.state.isMute}/>
         </form>);
     }
     
 }
 
 class SideUsersBlock extends React.Component{
+    constructor(props){
+        super(props);
+        this.handleClickMute = this.handleClickMute.bind(this);
+        this.handleClickBan = this.handleClickBan.bind(this);
+    }
 
+    handleClickMute(event){
+        console.log(event.target.id);
+        socket.send(JSON.stringify({statusCode: "mute", muteUserId: event.target.id}));
+    }
+
+    handleClickBan(event){
+        socket.send(JSON.stringify({statusCode: "ban", banUserId: event.target.id}));
+    }
 
     render(){
-        
-        return <div>
-            <ul></ul>
+        return <div className = "sideUsersBlock">
+            <ul>{this.props.usersOnLine.map((user,index)=>
+                <li key = {index}>{user.name}</li>
+            )}</ul>
+            {this.props.allUsers.length > 0 ? <div>
+                <p>All users</p>
+                <ul>
+                {this.props.allUsers.map((user,index)=>
+                    <li key = {index} >{user.name} <button onClick = {this.handleClickMute} id = {user.id}>{user.mute ? "unmute" : "mute"}</button><button onClick = {this.handleClickBan} id = {user.id}>{user.ban ? "unban" : 'ban'}</button></li>
+                )}
+            </ul></div>: null}
         </div>;
     }
 }

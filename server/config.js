@@ -1,15 +1,7 @@
 const jwt = require('jsonwebtoken');
 
-module.exports.getSecretKey = function(){
-    return "jushlgkdq421la";
-}
+module.exports.secretKey = "jushlgkdq421la";
+module.exports.dbconfig = {host:'localhost',database:"web_socket_chat", user:"root", password: 'root'};
 
 
-
-// try{
-//     let a = jwt.sign({name: "Denis"},this.getSecretKey(),{expiresIn: 0});
-//     jwt.verify(a,this.getSecretKey());
-// }catch(err){
-//     console.log(err.message);
-// }
-
+// TODO env
