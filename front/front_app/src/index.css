@@ -1,45 +1,80 @@
 .loginBlock{
     margin: auto;
-    display: block;
-    border: 1px solid;
     text-align: center;
-    color: blue;
-    max-width: 450px;
+    max-width: 40%;
+    background: gray;
+}
+.loginBlock h4{
+    margin-top: 50px;
+    margin-bottom: 20px;
+    padding-top: 20px
+}
+.form button{
+    margin: 20px 0px 25px 0;
+}
+.inputField{
+    width: 70%;
 }
 
-.form{
-    
-}
+
+
+
+/* .messageField{
+    max-height: 80%;
+    overflow: scroll;
+} */
 
 .messageBlock{
-    border: 1px dashed black;
-    background-color: gray;
-    border-radius: 15px;
-    margin: 10px;
-    width: 70em;
+    background-color: rgba(128, 128, 128,0.4);
+    margin:20px 10px 0px 20px;
+    border-radius: 10pt;
 }
 
-.messageBlock p{
-    margin: 0 10px;
+.messageBlock *{
+    padding-left: 10px;
 }
 
-.nameClass{
-    font-style: italic;
+body{
+    background-color:rgba(128, 128, 128,0.2);
+}
+.messagePaperBlock{
+    padding-top:10px;
+    padding-bottom:15px;
+    height: 80vh;
+    overflow-y: scroll;
 }
 
-.textClass{
-    display: block;
-    padding-left: 20px;
-    font-size: 20px;
-    font-weight: bold;    
-}
-
-.messageWindow{
-    max-width: 75%;
+.inputBlock{
     border: 1px solid;
+    width: 100%;
 }
+
+.paperInputForm{
+    padding: 20px 0px;
+    padding-left: 20px;
+    text-align: center;
+    width: 100%;
+}
+
+.gridContainer{
+    min-height: 80vh;
+}
+
+.title{
+    flex-grow: 1;
+}
+
 
 .sideUsersBlock{
-    max-width: 30%;
-    border: 1px solid;
+    height: 100%;
+    /* overflow-y: scroll; */
+}
+
+.sideUsersBlock li{ 
+    list-style-type: none;
+}
+
+.sideUsersBlock > ul{
+    margin-top: 0px;
+    padding-top: 20px;
 }

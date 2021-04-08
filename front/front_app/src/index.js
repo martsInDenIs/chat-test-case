@@ -1,15 +1,11 @@
-import React, { useState } from "react";
+import React from "react";
 import ReactDOM from "react-dom";
 import "./index.css"
-import Container from '@material-ui/core/Container';
-import Button from '@material-ui/core/Button';
-import TextField from '@material-ui/core/TextField';
-import {makeStyles, ThemeProvider, useTheme} from '@material-ui/core/styles';
-import Grid from '@material-ui/core/Grid';
+import {GridList, Container, Button, TextField, Grid, Paper, Typography, Box, AppBar, Toolbar} from '@material-ui/core';
+
 
 let socket = null;
 const myRequest = new XMLHttpRequest();
-// Just example
 
 class LoginForm extends React.Component{
     constructor(props){
@@ -19,7 +15,6 @@ class LoginForm extends React.Component{
             passwordField: "",
             isLogFail: false,
             chatRender: false,
-            userObj: '',
         }
         this.handleChange = this.handleChange.bind(this);
         this.handleSubmit = this.handleSubmit.bind(this);
@@ -64,7 +59,7 @@ class LoginForm extends React.Component{
                     break;
                 case "login_ok":
                     localStorage.setItem('web_token',answerObj.token);
-                    this.setState({chatRender: true, userObj: answerObj.user});
+                    this.setState({chatRender: true});
                     break;
                 default:
                     console.log('it`s not possible');
@@ -78,49 +73,54 @@ class LoginForm extends React.Component{
 
     render(){
         return (this.state.chatRender ? <ChatForm onLoginRender = {this.loginRender} user = {this.state.userObj}/> :
-         <Container component = "main" maxWidth = 'sm' className = "loginBlock">
-            <h3>Log in</h3>
-            <form onSubmit = {this.handleSubmit} className = "form">
-                <Grid container direction = 'column' justify = 'center' alignItems = 'center' >
-                    <TextField variant = 'outlined' required = {true} fullWidth id = 'login'  maxLength = '20' minLength = '3' placeholder = "Input login..." value = {this.state.nameField} onChange = {this.handleChange}/>
-                    <TextField variant = 'outlined' required = {true} fullwidth type = 'password'  id = 'password' maxLength = '10' minLength = '1' placeholder = "Input password..." value = {this.state.passwordField} onChange = {this.handleChange}/>
-                    <Button type = 'submit' variant = "contained" color = "primary"> Sign up </Button>
-                </Grid>
-            </form>
-            {!this.state.isLogFail ? null : <div>Invalid name or password</div>}
-        </Container>);
+            <Paper className = "loginBlock"  elevation ={12}>
+                <Container component = "main" maxWidth = 'ms'>
+                    <Typography  variant = 'h4' component = 'h4' >Log in</Typography>
+                    <form onSubmit = {this.handleSubmit} className = "form">
+                        <Grid container direction = 'column' justify = 'center' alignItems = 'center' >
+                            <TextField
+                            id = 'login' 
+                            margin = 'normal' 
+                            className = "inputField" 
+                            variant = 'outlined' 
+                            required  
+                            label = "Login"  
+                            maxLength = '20' 
+                            minLength = '3' 
+                            value = {this.state.nameField} 
+                            onChange = {this.handleChange}
+                            />
+                            <TextField
+                            id = 'password'
+                            className = 'inputField'
+                            margin = 'none'
+                            variant = 'outlined'
+                            required
+                            type = 'password'
+                            label = 'Password'
+                            maxLength = '10'
+                            minLength = '1'
+                            value = {this.state.passwordField}
+                            onChange = {this.handleChange}
+                            />
+                            <Button type = 'submit' variant = "contained" color = "primary"> Sign up </Button>
+                        </Grid>
+                    </form>
+                    {!this.state.isLogFail ? null : <div>Invalid name or password</div>}
+                </Container>
+            </Paper>
+        );
         
     }
 
 }
 
 
-
-// Элемент после логина
-
-// const messages = [];
-
-// event all messages
-
-// setState({ messages });
-
-// render
-
-
-// out => 
-// event server message
-
-// setState((prev) => ({
-    // ...prev,
-    // messages: messages.concat(msg),
-// }))
-
 class ChatForm extends React.Component{
     constructor(props){
         super(props);
         this.state = {
             messages: [],
-            isAdmin: '',
             isMute: '',
             usersOnLine: [],
             allUsers:[],
@@ -134,14 +134,17 @@ class ChatForm extends React.Component{
         socket.onmessage = (event) =>{
             let answerObj = JSON.parse(event.data);
             switch(answerObj.statusCode){
-                case "take_user_information":
-                    this.setState({isAdmin: answerObj.user.isAdmin, isMute: answerObj.user.isMute, name: answerObj.user.name});
+                case "get_primary_information":
+                    this.setState({
+                        messages: answerObj.allMessages,
+                        allUsers: answerObj.allUsers,
+                        usersOnLine: answerObj.usersOnLine,
+                        isMute: answerObj.userInfo.isMute,
+                        name: answerObj.userInfo.name,
+                    });
                     break;
                 case "send_message":
                     this.setState({messages: this.state.messages.concat(answerObj.message)});
-                    break;
-                case "get_all_messages":
-                    this.setState({messages: answerObj.messages});
                     break;
                 case "get_all_users":
                     if(answerObj.allUsers){
@@ -149,9 +152,6 @@ class ChatForm extends React.Component{
                     }else{
                         this.setState({usersOnLine: answerObj.usersOnLine});
                     }
-                    break;
-                case "find_messages":
-                    socket.send(JSON.stringify({statusCode: "get_all_messages"}));       
                     break;
                 case "find_new_users":
                     socket.send(JSON.stringify({statusCode: "get_all_users"}));
@@ -197,16 +197,29 @@ class ChatForm extends React.Component{
     }
 
     render(){
-        return (<div>
+        return (
             <div>
-                <ul>
-                    <MessageWindow  messages = {this.state.messages}/>
-                </ul>
-                <SideUsersBlock usersOnLine = {this.state.usersOnLine} allUsers = {this.state.allUsers}/>
-            </div>
-            <UserInputForm onHandleSubmit = {this.handleSubmit} isMute = {this.state.isMute}/>
-            <button onClick = {this.handleClick}>Exit</button>
-        </div>);
+                <AppBar position = 'static'> 
+                    <Toolbar>
+                        <Typography variant = 'h2' class = 'title'>Chat</Typography>
+                        <Button color = 'inherit' onClick = {this.handleClick}>Exit</Button>
+                    </Toolbar>
+                </AppBar>
+                <Grid container xl = {12} justify = 'center'> 
+                    <Grid className = "gridContainer" container item direction = 'row'>
+                        <Grid item xs = {5} sm ={6} md = {4} xl = {3} >
+                            <SideUsersBlock usersOnLine = {this.state.usersOnLine} allUsers = {this.state.allUsers}/>
+                        </Grid>
+                        <Grid item xs = {7} sm = {6} md = {8} xl = {9}>
+                            <MessageWindow  messages = {this.state.messages}/>
+                        </Grid>  
+                    <Grid item className = "inputBlock">
+                        <UserInputForm onHandleSubmit = {this.handleSubmit} isMute = {this.state.isMute} />
+                    </Grid>
+                    </Grid>
+                </Grid>
+        </div>
+                );
     }
 }
 
@@ -216,10 +229,19 @@ class ChatForm extends React.Component{
 
 class MessageWindow extends React.Component{
     render(){
-        return  (<div className = "messageWindow">{this.props.messages.map((user,index)=><div key={index} className = 'messageBlock'>
-                    <p style = {{color: user.loginColor}} className = "nameClass">{user.name}</p>
-                    <p style = {{color: user.textColor}} className = 'textClass'>{user.text}</p>
-                </div>)}</div>);
+        return  (
+            <Grid >
+                <Paper className = 'messagePaperBlock' >
+                    {this.props.messages.map((user,index)=>(
+                    <Grid className = "messageBlock" key={index}>
+                                <Typography variant = 'h5' component = 'p' style = {{color: user.color}}>{user.name}</Typography>
+                                <Typography component = 'p' style = {{color: user.color}}>{user.text}</Typography> 
+                    </Grid>
+                    )
+                    )}
+                </Paper>
+            </Grid>
+                );
     }
 }
 
@@ -232,7 +254,6 @@ class UserInputForm extends React.Component{
         this.handleChange = this.handleChange.bind(this);
         this.handleSubmit = this.handleSubmit.bind(this);
         this.state = {
-            // isMute: this.props.isMute,
             disabled: false,
             messageInput: '',
         }
@@ -256,10 +277,13 @@ class UserInputForm extends React.Component{
     }
 
     render(){
-        return (<form onSubmit = {this.handleSubmit}>
-            <textarea maxLength = '200' value = {this.state.messageInput} disabled = {this.props.isMute} onChange = {this.handleChange} required = {true} placeholder = "Input your message..." ></textarea>
-            <input type = 'submit' value = "Send message" disabled = {this.state.disabled || this.props.isMute}/>
-        </form>);
+        return (
+        <Paper className = "paperInputForm" elevation = {24}>
+                <form onSubmit = {this.handleSubmit}>
+                        <TextField className variant = 'standard' maxLength = '200' value = {this.state.messageInput} disabled = {this.props.isMute} onChange = {this.handleChange} required = {true} placeholder = "Input your message..." ></TextField>
+                        <Button type = 'submit' color = 'primary' variant = 'container' disabled = {this.state.disabled || this.props.isMute}>Send message</Button> 
+                </form>
+        </Paper>);
     }
     
 }
@@ -280,11 +304,12 @@ class SideUsersBlock extends React.Component{
     }
 
     render(){
-        return <div className = "sideUsersBlock">
-                    <ul>{this.props.usersOnLine.map((user,index)=>
-                        <li key = {index}>{user.name}</li>)}
+        return (
+            <Paper elevation = {23} className = "sideUsersBlock">
+                    <ul >{this.props.usersOnLine.map((user,index)=>
+                        <li key = {index}>{user}</li>)}
                     </ul>
-                    {this.props.allUsers.length > 0 ? <div>
+                    {this.props.allUsers ? <div>
                         <p>All users</p>
                             <ul>
                                 {this.props.allUsers.map((user,index)=>
@@ -295,7 +320,8 @@ class SideUsersBlock extends React.Component{
                                 )}
                             </ul>
                     </div>: null}
-        </div>;
+            </Paper>
+        );
     }
 }
 
